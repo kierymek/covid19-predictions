@@ -3,56 +3,54 @@ from tensorflow import keras
 import pandas as pd
 from keras.models import Sequential
 from keras.layers import Dense
-from datetime import datetime
 import numpy as np
-from sklearn import preprocessing
+import random
+import math
 
-min_max_scaler = preprocessing.MinMaxScaler()
+maxValue = 40000
+daysToPredict = 7
 
-accepted_diff = 0.01
-# def linear_regression_equality(y_true, y_pred):
-#     diff = K.abs(y_true-y_pred)
-#     return K.mean(K.cast(diff < accepted_diff, tf.float32))
-
-def preprocessing(values):
-    x = []
-    y = []
-    for i in range(len(values) - 15):
+def preprocessing(values, n):
+    result = []
+    for i in range(len(values) - n):
         tmp = []
-        for j in range(15):
-            tmp.append(values[i+j]/40000)
-        x.append(tmp)
-        y.append(values[i+15]/40000)
-    return [x, y]
-
+        for j in range(n):
+            tmp.append(values[i+j]/maxValue)
+        result.append([tmp,values[i+n]/maxValue])
+    return result
 
 df = pd.read_excel("data.xlsx", header=None)
 
 # print(df)
 dataset = df.values
-x_learn = dataset[0: 400, 0]
-y_learn = dataset[0: 400, 1]
-x_test = dataset[401:, 0]
-y_test = dataset[401:, 1]
+dataset = dataset[:, 1]
 
-for i in range(len(x_learn)):
-    x_learn[i] = int(x_learn[i].timestamp())
+corr = np.correlate(dataset, dataset, mode='full')
+corr = corr[int(len(corr)/2):]
+print(corr)
+most_correlated = np.count_nonzero(corr[0] - np.array(corr) < 10000000000) #17
+most_correlated = 14
 
-for i in range(len(x_test)):
-    x_test[i] = int(x_test[i].timestamp())
+preprocessed_dataset = preprocessing(dataset, most_correlated)
 
-x_learn = np.asarray(x_learn).astype(np.float32)
-y_learn = np.asarray(y_learn).astype(np.float32)
-x_test = np.asarray(x_test).astype(np.float32)
-y_test = np.asarray(y_test).astype(np.float32)
+input_table = []
+for i in range(len(preprocessed_dataset) - most_correlated, len(preprocessed_dataset)):
+    input_table.append(preprocessed_dataset[i][1])
+random.shuffle(preprocessed_dataset)
 
-res1 = preprocessing(y_learn)
-res2 = preprocessing(y_test)
+x_learn = []
+y_learn = []
+x_test = []
+y_test = []
 
-x_learn = res1[0]
-y_learn = res1[1]
-x_test = res2[0]
-y_test = res2[1]
+for i in range(len(preprocessed_dataset)):
+    if i <= 400:
+        x_learn.append(preprocessed_dataset[i][0])
+        y_learn.append(preprocessed_dataset[i][1])
+    else:
+        x_test.append(preprocessed_dataset[i][0])
+        y_test.append(preprocessed_dataset[i][1])
+
 
 x_learn = np.asarray(x_learn).astype(np.float32)
 y_learn = np.asarray(y_learn).astype(np.float32)
@@ -61,10 +59,15 @@ y_test = np.asarray(y_test).astype(np.float32)
 
 print(x_test, "\n", y_test)
 
+"""
+Numbers of neurons in layers:
+sqrt(input_nodes * output_nodes)
+"""
+nodes = int(math.sqrt(most_correlated * daysToPredict))
 model = Sequential([
-    Dense(32, activation='relu', input_shape=(15,)),
+    Dense(32, activation='relu', input_shape=(most_correlated,)),
     Dense(32, activation='relu'),
-    Dense(1),
+    Dense(daysToPredict)
 ])
 
 model.compile(optimizer='adam', loss='mean_squared_error', metrics=['mean_squared_error'])
@@ -74,10 +77,12 @@ hist = model.fit(x_learn, y_learn,
                  validation_data=(x_test, y_test))
 
 result = 1 - model.evaluate(x_test, y_test)[1]
-print(result)
+print("accuracy: ", result)
 
-tab2 = [0.054175,
-        0.027725, 0.04335, 0.0586, 0.05215, 0.041975, 0.0379, 0.026875, 0.013975,
-        0.025, 0.031675, 0.03075, 0.02365, 0.019375, 0.014475]
-predictions = model.predict([tab2])
+predictions = model.predict([input_table])
+
+print("most_correlated: ", most_correlated)
+print("input table: ", input_table)
 print(predictions)
+predictions = [np.asarray(p * maxValue).astype(np.int) for p in predictions]
+print(predictions[0])
