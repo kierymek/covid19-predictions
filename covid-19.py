@@ -28,7 +28,6 @@ def preprocessing(values, x_number, y_number):
 
 df = pd.read_excel("data.xlsx", header=None)
 
-# print(df)
 dataset = df.values
 dataset = dataset[:, 1]
 
@@ -39,11 +38,11 @@ most_correlated = np.count_nonzero(
     corr[0] - np.array(corr) < 10000000000)  # 17
 most_correlated = 14
 
-# plt.plot(corr)
-# plt.title('Autocorrelation')
-# plt.xlabel('Next offsets')
-# plt.ylabel('Autocorrelation')
-# plt.show()
+plt.plot(corr)
+plt.title('Autocorrelation')
+plt.xlabel('Next offsets')
+plt.ylabel('Autocorrelation')
+plt.show()
 
 preprocessed_dataset = preprocessing(dataset, most_correlated, daysToPredict)
 
@@ -73,13 +72,6 @@ y_learn = np.asarray(y_learn).astype(np.float32)
 x_test = np.asarray(x_test).astype(np.float32)
 y_test = np.asarray(y_test).astype(np.float32)
 
-print(x_test, "\n", y_test)
-
-"""
-Numbers of neurons in layers:
-sqrt(input_nodes * output_nodes)
-"""
-nodes = int(math.sqrt(most_correlated * daysToPredict))
 model = Sequential([
     Dense(32, activation='relu', input_shape=(most_correlated,)),
     Dense(32, activation='relu'),
@@ -96,6 +88,7 @@ hist = model.fit(x_learn, y_learn,
 result = 1 - model.evaluate(x_test, y_test)[1]
 print("accuracy: ", result)
 
+# predictions for next 7 days using last 14 records
 predictions = model.predict([input_table])
 
 plot_predictions = []
@@ -113,8 +106,6 @@ y_plot = new_y_plot
 print("plot_predictions: ", plot_predictions)
 print("y_plot: ", y_plot)
 
-# x_plot = x_learn[:5]
-# y_plot = y_learn[:5]
 
 print("most_correlated: ", most_correlated)
 print("input table: ", input_table)
